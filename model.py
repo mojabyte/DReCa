@@ -35,7 +35,7 @@ class BertMetaLearning(nn.Module):
         self.pa_dropout = nn.Dropout(args.dropout)
         self.pa_classifier = nn.Linear(args.hidden_dims, args.pa_labels)
 
-    def forward(self, task, data):
+    def forward(self, task, data, output_hidden_states=False):
 
         if "qa" in task:
 
@@ -89,6 +89,7 @@ class BertMetaLearning(nn.Module):
                 data["input_ids"],
                 attention_mask=data["attention_mask"],
                 token_type_ids=data["token_type_ids"],
+                output_hidden_states=output_hidden_states,
             )
 
             batch_size = data["input_ids"].shape[0]
@@ -190,4 +191,3 @@ class BertMetaLearning(nn.Module):
         self.pa_dropout = self.pa_dropout.to(*args, **kwargs)
         self.pa_classifier = self.pa_classifier.to(*args, **kwargs)
         return self
-

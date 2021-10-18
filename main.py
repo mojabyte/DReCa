@@ -3,13 +3,14 @@ import argparse, time, torch, os, logging, warnings, sys
 import itertools
 import matplotlib.pyplot as plt
 import numpy as np
-from sklearn.decomposition import PCA
+import pandas as pd
 from sklearn.cluster import KMeans
+from sklearn.decomposition import PCA
 from torch.utils.data import DataLoader
-from tqdm import tqdm
 
 from data import CorpusQA, CorpusSC, CorpusTC, CorpusPO, CorpusPA
-from model import BertMetaLearning
+
+# from model import BertMetaLearning
 from datapath import loc, get_loc
 from utils.logger import Logger
 
@@ -50,6 +51,9 @@ parser.add_argument("--cuda", action="store_true", help="use CUDA")
 parser.add_argument("--tpu", action="store_true", help="use TPU")
 parser.add_argument("--save", type=str, default="saved/", help="")
 parser.add_argument("--load", type=str, default="model.pt", help="")
+parser.add_argument("--load_embeddings", type=str, default="", help="")
+parser.add_argument("--load_pca", type=str, default="", help="")
+parser.add_argument("--log_interval", type=int, default=100, help="")
 parser.add_argument("--log_file", type=str, default="main_output.txt", help="")
 parser.add_argument("--grad_clip", type=float, default=5.0)
 parser.add_argument("--datasets", type=str, default="sc_en")
@@ -89,6 +93,7 @@ list_of_tasks = list(set(list_of_tasks))
 print(list_of_tasks)
 
 if torch.cuda.is_available():
+    print("********************\n", "cuda available", "\n********************")
     if not args.cuda:
         args.cuda = True
 
@@ -99,6 +104,7 @@ DEVICE = torch.device("cuda" if args.cuda else "cpu")
 
 def main():
     # loader
+    data_list = []
     dataloaders = []
 
     for k in list_of_tasks:
@@ -143,45 +149,71 @@ def main():
         else:
             continue
 
+        data_list.append(data)
         dataloader = DataLoader(data, shuffle=False, batch_size=batch_size)
         dataloaders.append(dataloader)
 
-    # model = BertMetaLearning(args).to(DEVICE)
-
     print(f"loading model {args.load}...")
-    model = torch.load(args.load)
+    model = torch.load(args.load).to(DEVICE)
 
     global_time = time.time()
 
-    print("\n------------------ Generate Embeddings ------------------\n")
+    print("\n------------------ Load Datasets ------------------\n")
 
-    embeddings = []
-    for dataloader in dataloaders:
-        embedding = embed(model, dataloader)
-        embeddings.append(embedding)
+    data = None
+    header = ["premise", "hypothesis", "label"]
+    for task in list_of_tasks:
+        path = get_loc("train", k, args.data_dir)[0]
+        df = pd.read_csv(path, sep="\t", header=None, names=header)
+        if data == None:
+            data = df
+        else:
+            data.append(df)
 
-    embeddings = torch.stack(embeddings)
+    print(f"{time.time() - global_time:.0f}s")
 
-    print("save embeddings to embeddings.pt...")
-    torch.save(embeddings, "embeddings.pt")
+    if args.load_pca != "":
+        print(f"load pca {args.load_pca}...")
+        principalComponents = torch.load(args.load_pca)
+    else:
+        embeddings = []
 
-    print(f"{time.time() - global_time}s")
+        if args.load_embeddings != "":
+            print(f"load embeddings {args.load_embeddings}...")
+            embeddings = torch.load(args.load_embeddings)
+        else:
+            print("\n------------------ Generate Embeddings ------------------")
 
-    print("\n----------------------- Apply PCA -----------------------\n")
+            for task, dataloader in zip(list_of_tasks, dataloaders):
+                print(f"\nEmbedding {task} dataset")
+                print("======" * 10)
+                embedding = embed(model, dataloader, task)
+                embeddings.append(embedding)
 
-    pca = PCA(n_components=0.99, svd_solver="full", copy=False)
-    principalComponents = pca.fit_transform(embeddings)
+            embeddings = torch.cat(embeddings, dim=0).cpu()
 
-    print(principalComponents.shape)
+            print("save embeddings...")
+            torch.save(embeddings, os.path.join(args.save, "embeddings.pt"))
 
-    del embeddings
+        print(f"{time.time() - global_time:.0f}s")
 
-    print(f"{time.time() - global_time}s")
+        print("\n----------------------- Apply PCA -----------------------\n")
+
+        pca = PCA(n_components=0.99, svd_solver="full", copy=False)
+        principalComponents = pca.fit_transform(embeddings)
+        print(f"PCA output shape: {principalComponents.shape}")
+        torch.save(principalComponents, os.path.join(args.save, "pca.pt"))
+
+        del embeddings
+
+    print(f"{time.time() - global_time:.0f}s")
 
     print("\n---------------------- Clustering -----------------------\n")
 
-    label_dict = {"entailment": 0, "contradiction": 1, "neutral": 2}
-    labels = np.array([label_dict[label] for label in data["label"].to_list()])
+    # TODO: loop over all task_list labels
+    labels = np.array(
+        [data_list[0].label_dict[label] for label in data["label"].to_list()]
+    )
 
     embeddings_0 = principalComponents[labels == 0]
     embeddings_1 = principalComponents[labels == 1]
@@ -195,7 +227,7 @@ def main():
     kmeans_1 = KMeans(n_clusters=2, random_state=0).fit(embeddings_1)
     kmeans_2 = KMeans(n_clusters=2, random_state=0).fit(embeddings_2)
 
-    print(f"{time.time() - global_time}s")
+    print(f"{time.time() - global_time:.0f}s")
 
     print("\n-------------------- Plot Clusters ----------------------\n")
 
@@ -216,9 +248,10 @@ def main():
     plot_clusters(embeddings_1, kmeans_1, marker="x", label="contradiction")
     plot_clusters(embeddings_2, kmeans_2, marker=".", label="neutral")
     plt.legend()
-    plt.show()
+    # plt.show()
+    plt.savefig(os.path.join(args.save, "clusters.png"))
 
-    print(f"{time.time() - global_time}s")
+    print(f"{time.time() - global_time:.0f}s")
 
     print("\n------ Save all label-cluster combinations subsets ------\n")
 
@@ -231,50 +264,67 @@ def main():
     c = get_cluster_idx(kmeans_1, ids[labels == 1])
     n = get_cluster_idx(kmeans_2, ids[labels == 2])
 
+    tasks_path = os.path.join(args.save, "tasks")
+    if not os.path.exists(tasks_path):
+        os.makedirs(tasks_path)
+
     for i, combination in enumerate(list(itertools.product(e, c, n))):
         idx_list = np.concatenate(combination)
         data_subset = data.loc[idx_list, :].sort_index()
-        data_subset.to_csv(f"train-{i}.csv", sep="\t", header=None, index=None)
+        data_subset.to_csv(
+            os.path.join(tasks_path, f"task-{i}.csv"),
+            sep="\t",
+            header=None,
+            index=None,
+        )
+
+    print(f"{time.time() - global_time:.0f}s")
 
 
-def embed(model, dataloader):
+def embed(model, dataloader, task):
     model.eval()
     with torch.no_grad():
         embeddings = torch.tensor([]).to(DEVICE)
 
-        for pair_token_ids, mask_ids, seg_ids, y in tqdm(dataloader):
-            pair_token_ids = pair_token_ids.to(DEVICE)
-            mask_ids = mask_ids.to(DEVICE)
-            seg_ids = seg_ids.to(DEVICE)
-            labels = y.to(DEVICE)
-            outputs = model(
-                pair_token_ids,
-                token_type_ids=seg_ids,
-                attention_mask=mask_ids,
-                labels=labels,
-                output_hidden_states=True,
-            )
+        timer = time.time()
+        for i, batch in enumerate(dataloader):
+            outputs = model.forward(task, batch, output_hidden_states=True)
+
+            last_hidden_state = outputs[2][-1]
 
             # embeddding at the [CLS] token:
-            cls_embedding = outputs.hidden_states[0][:, 0, :]
+            cls_embedding = last_hidden_state[:, 0, :]
 
             # mean pooled representation of premise & hypothesis
-            pooled_representation = outputs.hidden_states[-1]
-            premise_representation = torch.stack(
-                [i[j == 0].mean(axis=0) for i, j in zip(pooled_representation, seg_ids)]
-            )
-            hypothesis_representation = torch.stack(
-                [i[j == 1].mean(axis=0) for i, j in zip(pooled_representation, seg_ids)]
-            )
+            attention_mask = batch["attention_mask"]
+            token_type_ids = batch["token_type_ids"]
+            seg_ids = token_type_ids + attention_mask
+            seg_ids[:, 0] = 0
+
+            premise_seg = (seg_ids == 1).unsqueeze(-1).float()
+            premise_representation = torch.sum(
+                last_hidden_state * premise_seg, dim=1
+            ) / torch.sum(premise_seg, dim=1)
+
+            hypothesis_seg = (seg_ids == 2).unsqueeze(-1).float()
+            hypothesis_representation = torch.sum(
+                last_hidden_state * hypothesis_seg, dim=1
+            ) / torch.sum(hypothesis_seg, dim=1)
 
             embedding = torch.cat(
                 (cls_embedding, premise_representation, hypothesis_representation), 1
             )
             embeddings = torch.cat((embeddings, embedding), 0)
 
+            if (i + 1) % args.log_interval == 0:
+                print(
+                    f"{time.time() - timer:.2f}s | batch#{i + 1} | {i / len(dataloader):.2f}% completed"
+                )
+                print("------" * 10)
+                timer = time.time()
+
     return embeddings
 
 
 if __name__ == "__main__":
     main()
-

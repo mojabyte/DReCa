@@ -152,6 +152,7 @@ def evaluateMeta(model, dev_loaders):
 
 def main():
     if torch.cuda.is_available():
+        print("********************\n", "cuda available", "\n********************")
         if not args.cuda:
             args.cuda = True
 
@@ -414,4 +415,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
