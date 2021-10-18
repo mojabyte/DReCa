@@ -318,7 +318,7 @@ def embed(model, dataloader, task):
 
             if (i + 1) % args.log_interval == 0:
                 print(
-                    f"{time.time() - timer:.2f}s | batch#{i + 1} | {i / len(dataloader):.2f}% completed"
+                    f"{time.time() - timer:.2f}s | batch#{i + 1} | {i / len(dataloader) * 100:.2f}% completed"
                 )
                 print("------" * 10)
                 timer = time.time()
