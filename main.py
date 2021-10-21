@@ -26,7 +26,7 @@ parser.add_argument("--hidden_dims", type=int, default=768, help="")  # 768
 parser.add_argument(
     "--model_name",
     type=str,
-    default="xlm-roberta-base",
+    default="bert-base-multilingual-cased",
     help="name of the pretrained model",
 )
 parser.add_argument(
