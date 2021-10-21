@@ -89,6 +89,8 @@ DEVICE = torch.device("cuda" if args.cuda else "cpu")
 
 
 def main():
+    global_time = time.time()
+
     if args.load_pca != "":
         print(f"load pca {args.load_pca}...")
         principalComponents = torch.load(args.load_pca)
