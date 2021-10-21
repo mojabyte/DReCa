@@ -3,7 +3,7 @@ import argparse, time, torch, os, logging, warnings, sys
 import numpy as np
 from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import StepLR
-from data import CorpusQA, CorpusSC, CorpusTC, CorpusPO, CorpusPA
+from data import CorpusQA, CorpusSC
 from model import BertMetaLearning
 from datapath import loc, get_loc
 
@@ -36,15 +36,9 @@ parser.add_argument(
 
 parser.add_argument("--sc_labels", type=int, default=3, help="")
 parser.add_argument("--qa_labels", type=int, default=2, help="")
-parser.add_argument("--tc_labels", type=int, default=10, help="")
-parser.add_argument("--po_labels", type=int, default=18, help="")
-parser.add_argument("--pa_labels", type=int, default=2, help="")
 
 parser.add_argument("--qa_batch_size", type=int, default=8, help="batch size")
-parser.add_argument("--sc_batch_size", type=int, default=32, help="batch size")  # 32
-parser.add_argument("--tc_batch_size", type=int, default=32, help="batch size")
-parser.add_argument("--po_batch_size", type=int, default=32, help="batch_size")
-parser.add_argument("--pa_batch_size", type=int, default=8, help="batch size")
+parser.add_argument("--sc_batch_size", type=int, default=32, help="batch size")
 
 parser.add_argument("--task_per_queue", type=int, default=8, help="")
 parser.add_argument(
@@ -81,18 +75,8 @@ parser.add_argument("--load", type=str, default="", help="")
 parser.add_argument("--log_file", type=str, default="train_output.txt", help="")
 parser.add_argument("--grad_clip", type=float, default=5.0)
 parser.add_argument("--meta_tasks", type=str, default="sc,pa,qa,tc,po")
-
-parser.add_argument(
-    "--sampler", type=str, default="uniform_batch", choices=["uniform_batch"]
-)
-parser.add_argument("--temp", type=float, default=1.0)
-
 parser.add_argument("--num_workers", type=int, default=0, help="")
-parser.add_argument("--n_best_size", default=20, type=int)  # 20
-parser.add_argument("--max_answer_length", default=30, type=int)  # 30
-parser.add_argument(
-    "--weight_decay", default=0.0, type=float, help="Weight decay if we apply some."
-)
+parser.add_argument("--weight_decay", default=0.0, type=float, help="Weight decay")
 parser.add_argument("--scheduler", action="store_true", help="use scheduler")
 parser.add_argument("--step_size", default=3000, type=int)
 parser.add_argument("--last_step", default=0, type=int)
@@ -193,42 +177,6 @@ def main():
                 local_files_only=args.local_model,
             )
             batch_size = args.sc_batch_size
-        elif "tc" in k:
-            train_corpus = CorpusTC(
-                get_loc("train", k, args.data_dir)[0],
-                model_name=args.model_name,
-                local_files_only=args.local_model,
-            )
-            dev_corpus = CorpusTC(
-                get_loc("dev", k, args.data_dir)[0],
-                model_name=args.model_name,
-                local_files_only=args.local_model,
-            )
-            batch_size = args.tc_batch_size
-        elif "po" in k:
-            train_corpus = CorpusPO(
-                get_loc("train", k, args.data_dir)[0],
-                model_name=args.model_name,
-                local_files_only=args.local_model,
-            )
-            dev_corpus = CorpusPO(
-                get_loc("dev", k, args.data_dir)[0],
-                model_name=args.model_name,
-                local_files_only=args.local_model,
-            )
-            batch_size = args.po_batch_size
-        elif "pa" in k:
-            train_corpus = CorpusPA(
-                get_loc("train", k, args.data_dir)[0],
-                model_name=args.model_name,
-                local_files_only=args.local_model,
-            )
-            dev_corpus = CorpusPA(
-                get_loc("dev", k, args.data_dir)[0],
-                model_name=args.model_name,
-                local_files_only=args.local_model,
-            )
-            batch_size = args.pa_batch_size
         else:
             continue
 
@@ -284,12 +232,6 @@ def main():
     ]
 
     optim = AdamW(optimizer_grouped_parameters, lr=args.meta_lr, eps=args.adam_epsilon)
-    # scheduler = get_linear_schedule_with_warmup(
-    #     optim,
-    #     num_warmup_steps=args.warmup,
-    #     num_training_steps=steps,
-    #     last_epoch=args.start_epoch - 1,
-    # )
     scheduler = StepLR(
         optim,
         step_size=args.step_size,
@@ -302,18 +244,6 @@ def main():
     logger["val_loss"] = {k: [] for k in list_of_tasks}
     logger["train_loss"] = []
     logger["args"] = args
-
-    ## = Model Update config.
-    # criterion  = nn.CrossEntropyLoss()
-    # criterion_mt = losses.NTXentLoss(temperature=0.07)
-    #   criterion = CPELoss(args)
-    # criterion = PrototypicalLoss(n_support=args.shot)
-    # optim = SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
-    # optim = Adam(model.parameters(),
-    #               lr=args.lr,
-    #               weight_decay=args.wd)
-
-    # scheduler = StepLR(optim, step_size=2, gamma=args.gamma)
 
     ## == 2) Learn model
     global_time = time.time()
@@ -347,16 +277,6 @@ def main():
 
                 ## == train ===================
                 loss = reptile_learner(model, queue, optim, miteration_item, args)
-                # loss, prototypes = pt_learner(
-                #     model,
-                #     support_images,
-                #     support_labels,
-                #     query_images,
-                #     query_labels,
-                #     criterion,
-                #     optim,
-                #     args,
-                # )
                 train_loss += loss
 
                 ## == validation ==============
@@ -367,10 +287,6 @@ def main():
 
                     # evalute on val_dataset
                     val_loss_dict, val_loss_total = evaluateMeta(model, dev_loaders)
-                    # val_loss_total = reptile_evaluate(model, dev_loader, criterion, DEVICE) # For Reptile
-                    # val_loss_total = pt_evaluate(
-                    #     model, val_dataloader, prototypes, criterion, device
-                    # )  # For Pt.
 
                     loss_per_task = {}
                     for task in val_loss_dict.keys():

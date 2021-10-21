@@ -8,7 +8,7 @@ from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from torch.utils.data import DataLoader
 
-from data import CorpusQA, CorpusSC, CorpusTC, CorpusPO, CorpusPA
+from data import CorpusQA, CorpusSC
 
 # from model import BertMetaLearning
 from datapath import loc, get_loc
@@ -35,15 +35,9 @@ parser.add_argument(
 
 parser.add_argument("--sc_labels", type=int, default=3, help="")
 parser.add_argument("--qa_labels", type=int, default=2, help="")
-parser.add_argument("--tc_labels", type=int, default=10, help="")
-parser.add_argument("--po_labels", type=int, default=18, help="")
-parser.add_argument("--pa_labels", type=int, default=2, help="")
 
 parser.add_argument("--qa_batch_size", type=int, default=8, help="batch size")
-parser.add_argument("--sc_batch_size", type=int, default=32, help="batch size")  # 32
-parser.add_argument("--tc_batch_size", type=int, default=32, help="batch size")
-parser.add_argument("--po_batch_size", type=int, default=32, help="batch_size")
-parser.add_argument("--pa_batch_size", type=int, default=8, help="batch size")
+parser.add_argument("--sc_batch_size", type=int, default=32, help="batch size")
 
 parser.add_argument("--seed", type=int, default=63, help="seed for numpy and pytorch")
 parser.add_argument("--data_dir", type=str, default="data/", help="directory of data")
@@ -57,15 +51,7 @@ parser.add_argument("--log_interval", type=int, default=100, help="")
 parser.add_argument("--log_file", type=str, default="main_output.txt", help="")
 parser.add_argument("--grad_clip", type=float, default=5.0)
 parser.add_argument("--datasets", type=str, default="sc_en")
-
-parser.add_argument(
-    "--sampler", type=str, default="uniform_batch", choices=["uniform_batch"]
-)
-parser.add_argument("--temp", type=float, default=1.0)
-
 parser.add_argument("--num_workers", type=int, default=0, help="")
-parser.add_argument("--n_best_size", default=20, type=int)  # 20
-parser.add_argument("--max_answer_length", default=30, type=int)  # 30
 
 args = parser.parse_args()
 
@@ -125,27 +111,6 @@ def main():
                 local_files_only=args.local_model,
             )
             batch_size = args.sc_batch_size
-        elif "tc" in k:
-            data = CorpusTC(
-                get_loc("train", k, args.data_dir)[0],
-                model_name=args.model_name,
-                local_files_only=args.local_model,
-            )
-            batch_size = args.tc_batch_size
-        elif "po" in k:
-            data = CorpusPO(
-                get_loc("train", k, args.data_dir)[0],
-                model_name=args.model_name,
-                local_files_only=args.local_model,
-            )
-            batch_size = args.po_batch_size
-        elif "pa" in k:
-            data = CorpusPA(
-                get_loc("train", k, args.data_dir)[0],
-                model_name=args.model_name,
-                local_files_only=args.local_model,
-            )
-            batch_size = args.pa_batch_size
         else:
             continue
 
