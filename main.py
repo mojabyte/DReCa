@@ -89,54 +89,6 @@ DEVICE = torch.device("cuda" if args.cuda else "cpu")
 
 
 def main():
-    # loader
-    data_list = []
-    dataloaders = []
-
-    for k in list_of_tasks:
-        data = None
-        batch_size = 32
-
-        if "qa" in k:
-            data = CorpusQA(
-                *get_loc("train", k, args.data_dir),
-                model_name=args.model_name,
-                local_files_only=args.local_model,
-            )
-            batch_size = args.qa_batch_size
-        elif "sc" in k:
-            data = CorpusSC(
-                *get_loc("train", k, args.data_dir),
-                model_name=args.model_name,
-                local_files_only=args.local_model,
-            )
-            batch_size = args.sc_batch_size
-        else:
-            continue
-
-        data_list.append(data)
-        dataloader = DataLoader(data, shuffle=False, batch_size=batch_size)
-        dataloaders.append(dataloader)
-
-    print(f"loading model {args.load}...")
-    model = torch.load(args.load).to(DEVICE)
-
-    global_time = time.time()
-
-    print("\n------------------ Load Datasets ------------------\n")
-
-    data = None
-    header = ["premise", "hypothesis", "label"]
-    for task in list_of_tasks:
-        path = get_loc("train", k, args.data_dir)[0]
-        df = pd.read_csv(path, sep="\t", header=None, names=header)
-        if data == None:
-            data = df
-        else:
-            data.append(df)
-
-    print(f"{time.time() - global_time:.0f}s")
-
     if args.load_pca != "":
         print(f"load pca {args.load_pca}...")
         principalComponents = torch.load(args.load_pca)
@@ -147,6 +99,54 @@ def main():
             print(f"load embeddings {args.load_embeddings}...")
             embeddings = torch.load(args.load_embeddings)
         else:
+            # loader
+            data_list = []
+            dataloaders = []
+
+            for k in list_of_tasks:
+                data = None
+                batch_size = 32
+
+                if "qa" in k:
+                    data = CorpusQA(
+                        *get_loc("train", k, args.data_dir),
+                        model_name=args.model_name,
+                        local_files_only=args.local_model,
+                    )
+                    batch_size = args.qa_batch_size
+                elif "sc" in k:
+                    data = CorpusSC(
+                        *get_loc("train", k, args.data_dir),
+                        model_name=args.model_name,
+                        local_files_only=args.local_model,
+                    )
+                    batch_size = args.sc_batch_size
+                else:
+                    continue
+
+                data_list.append(data)
+                dataloader = DataLoader(data, shuffle=False, batch_size=batch_size)
+                dataloaders.append(dataloader)
+
+            print(f"loading model {args.load}...")
+            model = torch.load(args.load).to(DEVICE)
+
+            global_time = time.time()
+
+            print("\n------------------ Load Datasets ------------------\n")
+
+            data = None
+            header = ["premise", "hypothesis", "label"]
+            for task in list_of_tasks:
+                path = get_loc("train", k, args.data_dir)[0]
+                df = pd.read_csv(path, sep="\t", header=None, names=header)
+                if data == None:
+                    data = df
+                else:
+                    data.append(df)
+
+            print(f"{time.time() - global_time:.0f}s")
+
             print("\n------------------ Generate Embeddings ------------------")
 
             for task, dataloader in zip(list_of_tasks, dataloaders):
