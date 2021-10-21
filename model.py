@@ -71,6 +71,8 @@ class BertMetaLearning(nn.Module):
             loss = (start_loss + end_loss) / 2
             outputs = (loss,) + outputs
 
+        return outputs
+
     def forward_sc(self, data, output_hidden_states=False):
         data["input_ids"] = data["input_ids"].to(self.device)
         data["attention_mask"] = data["attention_mask"].to(self.device)
@@ -91,6 +93,8 @@ class BertMetaLearning(nn.Module):
 
         loss = F.cross_entropy(logits, data["label"], reduction="none")
         outputs = (loss, logits) + outputs[2:]
+
+        return outputs
 
     def to(self, *args, **kwargs):
         self = super().to(*args, **kwargs)
