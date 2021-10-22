@@ -175,12 +175,9 @@ def main():
             principalComponents = pca.fit_transform(embeddings)
             del embeddings
             print(f"PCA output shape: {principalComponents.shape}")
-            torch.save(principalComponents, os.path.join(args.save, "pca.pt"))
+            torch.save(principalComponents, os.path.join(args.save, "pca.pt"), pickle_protocol=4)
 
             print(f"{time.time() - global_time:.0f}s")
-
-        else:
-            return
 
     if args.cluster:
 
