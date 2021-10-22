@@ -190,9 +190,8 @@ def main():
         print("\n---------------------- Clustering -----------------------\n")
 
         # TODO: loop over all task_list labels
-        labels = np.array(
-            [data_list[0].label_dict[label] for label in data["label"].to_list()]
-        )
+        label_dict = {"contradiction": 0, "entailment": 1, "neutral": 2}
+        labels = np.array([label_dict[label] for label in data["label"].to_list()])
 
         embeddings_0 = principalComponents[labels == 0]
         embeddings_1 = principalComponents[labels == 1]
