@@ -139,20 +139,6 @@ def main():
 
             global_time = time.time()
 
-            print("\n------------------ Load Datasets ------------------\n")
-
-            data = None
-            header = ["premise", "hypothesis", "label"]
-            for task in list_of_tasks:
-                path = get_loc("train", k, args.data_dir)[0]
-                df = pd.read_csv(path, sep="\t", header=None, names=header)
-                if data == None:
-                    data = df
-                else:
-                    data.append(df)
-
-            print(f"{time.time() - global_time:.0f}s")
-
             print("\n------------------ Generate Embeddings ------------------")
 
             for task, dataloader in zip(list_of_tasks, dataloaders):
@@ -175,11 +161,31 @@ def main():
             principalComponents = pca.fit_transform(embeddings)
             del embeddings
             print(f"PCA output shape: {principalComponents.shape}")
-            torch.save(principalComponents, os.path.join(args.save, "pca.pt"), pickle_protocol=4)
+            torch.save(
+                principalComponents,
+                os.path.join(args.save, "pca.pt"),
+                pickle_protocol=4,
+            )
 
             print(f"{time.time() - global_time:.0f}s")
 
     if args.cluster:
+
+        global_time = time.time()
+
+        print("\n------------------ Load Datasets ------------------\n")
+
+        data = None
+        header = ["premise", "hypothesis", "label"]
+        for task in list_of_tasks:
+            path = get_loc("train", k, args.data_dir)[0]
+            df = pd.read_csv(path, sep="\t", header=None, names=header)
+            if data == None:
+                data = df
+            else:
+                data.append(df)
+
+        print(f"{time.time() - global_time:.0f}s")
 
         print("\n---------------------- Clustering -----------------------\n")
 
