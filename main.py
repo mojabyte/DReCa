@@ -53,6 +53,10 @@ parser.add_argument("--grad_clip", type=float, default=5.0)
 parser.add_argument("--datasets", type=str, default="sc_en")
 parser.add_argument("--num_workers", type=int, default=0, help="")
 
+parser.add_argument("--embed", action="store_true", help="Generate embeddings")
+parser.add_argument("--pca", action="store_true", help="Calculate PCA")
+parser.add_argument("--cluster", action="store_true", help="Clustering")
+
 args = parser.parse_args()
 
 torch.manual_seed(args.seed)
@@ -100,7 +104,7 @@ def main():
         if args.load_embeddings != "":
             print(f"load embeddings {args.load_embeddings}...")
             embeddings = torch.load(args.load_embeddings)
-        else:
+        elif args.embed:
             # loader
             data_list = []
             dataloaders = []
@@ -164,88 +168,99 @@ def main():
 
         print(f"{time.time() - global_time:.0f}s")
 
-        print("\n----------------------- Apply PCA -----------------------\n")
+        if args.pca:
+            print("\n----------------------- Apply PCA -----------------------\n")
 
-        pca = PCA(n_components=0.99, svd_solver="full", copy=False)
-        principalComponents = pca.fit_transform(embeddings)
-        print(f"PCA output shape: {principalComponents.shape}")
-        torch.save(principalComponents, os.path.join(args.save, "pca.pt"))
+            pca = PCA(n_components=0.99, svd_solver="full", copy=False)
+            principalComponents = pca.fit_transform(embeddings)
+            del embeddings
+            print(f"PCA output shape: {principalComponents.shape}")
+            torch.save(principalComponents, os.path.join(args.save, "pca.pt"))
 
-        del embeddings
+            print(f"{time.time() - global_time:.0f}s")
 
-    print(f"{time.time() - global_time:.0f}s")
+        else:
+            return
 
-    print("\n---------------------- Clustering -----------------------\n")
+    if args.cluster:
 
-    # TODO: loop over all task_list labels
-    labels = np.array(
-        [data_list[0].label_dict[label] for label in data["label"].to_list()]
-    )
+        print("\n---------------------- Clustering -----------------------\n")
 
-    embeddings_0 = principalComponents[labels == 0]
-    embeddings_1 = principalComponents[labels == 1]
-    embeddings_2 = principalComponents[labels == 2]
-
-    print(embeddings_0.shape)
-    print(embeddings_1.shape)
-    print(embeddings_2.shape)
-
-    kmeans_0 = KMeans(n_clusters=2, random_state=0).fit(embeddings_0)
-    kmeans_1 = KMeans(n_clusters=2, random_state=0).fit(embeddings_1)
-    kmeans_2 = KMeans(n_clusters=2, random_state=0).fit(embeddings_2)
-
-    print(f"{time.time() - global_time:.0f}s")
-
-    print("\n-------------------- Plot Clusters ----------------------\n")
-
-    plt.rcParams["figure.figsize"] = 15, 10
-
-    def plot_clusters(embeddings, kmeans, marker="o", label=""):
-        cluster_1 = embeddings[kmeans.labels_ == 0]
-        cluster_2 = embeddings[kmeans.labels_ == 1]
-
-        plt.scatter(
-            cluster_1[:, 0], cluster_1[:, 1], marker=marker, label=f"{label}: cluster 1"
-        )
-        plt.scatter(
-            cluster_2[:, 0], cluster_2[:, 1], marker=marker, label=f"{label}: cluster 2"
+        # TODO: loop over all task_list labels
+        labels = np.array(
+            [data_list[0].label_dict[label] for label in data["label"].to_list()]
         )
 
-    plot_clusters(embeddings_0, kmeans_0, marker="+", label="entailment")
-    plot_clusters(embeddings_1, kmeans_1, marker="x", label="contradiction")
-    plot_clusters(embeddings_2, kmeans_2, marker=".", label="neutral")
-    plt.legend()
-    # plt.show()
-    plt.savefig(os.path.join(args.save, "clusters.png"))
+        embeddings_0 = principalComponents[labels == 0]
+        embeddings_1 = principalComponents[labels == 1]
+        embeddings_2 = principalComponents[labels == 2]
 
-    print(f"{time.time() - global_time:.0f}s")
+        print(embeddings_0.shape)
+        print(embeddings_1.shape)
+        print(embeddings_2.shape)
 
-    print("\n------ Save all label-cluster combinations subsets ------\n")
+        kmeans_0 = KMeans(n_clusters=2, random_state=0).fit(embeddings_0)
+        kmeans_1 = KMeans(n_clusters=2, random_state=0).fit(embeddings_1)
+        kmeans_2 = KMeans(n_clusters=2, random_state=0).fit(embeddings_2)
 
-    ids = data.index.to_numpy()
+        print(f"{time.time() - global_time:.0f}s")
 
-    def get_cluster_idx(kmeans, ids):
-        return ids[kmeans.labels_ == 0], ids[kmeans.labels_ == 1]
+        print("\n-------------------- Plot Clusters ----------------------\n")
 
-    e = get_cluster_idx(kmeans_0, ids[labels == 0])
-    c = get_cluster_idx(kmeans_1, ids[labels == 1])
-    n = get_cluster_idx(kmeans_2, ids[labels == 2])
+        plt.rcParams["figure.figsize"] = 15, 10
 
-    tasks_path = os.path.join(args.save, "tasks")
-    if not os.path.exists(tasks_path):
-        os.makedirs(tasks_path)
+        def plot_clusters(embeddings, kmeans, marker="o", label=""):
+            cluster_1 = embeddings[kmeans.labels_ == 0]
+            cluster_2 = embeddings[kmeans.labels_ == 1]
 
-    for i, combination in enumerate(list(itertools.product(e, c, n))):
-        idx_list = np.concatenate(combination)
-        data_subset = data.loc[idx_list, :].sort_index()
-        data_subset.to_csv(
-            os.path.join(tasks_path, f"task-{i}.csv"),
-            sep="\t",
-            header=None,
-            index=None,
-        )
+            plt.scatter(
+                cluster_1[:, 0],
+                cluster_1[:, 1],
+                marker=marker,
+                label=f"{label}: cluster 1",
+            )
+            plt.scatter(
+                cluster_2[:, 0],
+                cluster_2[:, 1],
+                marker=marker,
+                label=f"{label}: cluster 2",
+            )
 
-    print(f"{time.time() - global_time:.0f}s")
+        plot_clusters(embeddings_0, kmeans_0, marker="+", label="entailment")
+        plot_clusters(embeddings_1, kmeans_1, marker="x", label="contradiction")
+        plot_clusters(embeddings_2, kmeans_2, marker=".", label="neutral")
+        plt.legend()
+        # plt.show()
+        plt.savefig(os.path.join(args.save, "clusters.png"))
+
+        print(f"{time.time() - global_time:.0f}s")
+
+        print("\n------ Save all label-cluster combinations subsets ------\n")
+
+        ids = data.index.to_numpy()
+
+        def get_cluster_idx(kmeans, ids):
+            return ids[kmeans.labels_ == 0], ids[kmeans.labels_ == 1]
+
+        e = get_cluster_idx(kmeans_0, ids[labels == 0])
+        c = get_cluster_idx(kmeans_1, ids[labels == 1])
+        n = get_cluster_idx(kmeans_2, ids[labels == 2])
+
+        tasks_path = os.path.join(args.save, "tasks")
+        if not os.path.exists(tasks_path):
+            os.makedirs(tasks_path)
+
+        for i, combination in enumerate(list(itertools.product(e, c, n))):
+            idx_list = np.concatenate(combination)
+            data_subset = data.loc[idx_list, :].sort_index()
+            data_subset.to_csv(
+                os.path.join(tasks_path, f"task-{i}.csv"),
+                sep="\t",
+                header=None,
+                index=None,
+            )
+
+        print(f"{time.time() - global_time:.0f}s")
 
 
 def embed(model, dataloader, task):
@@ -283,11 +298,10 @@ def embed(model, dataloader, task):
             )
             embeddings = torch.cat((embeddings, embedding), 0)
 
-            if (i + 1) % args.log_interval == 0:
+            if (i + 1) % args.log_interval == 0 or (i + 1) == len(dataloader):
                 print(
-                    f"{time.time() - timer:.2f}s | batch#{i + 1} | {i / len(dataloader) * 100:.2f}% completed"
+                    f"{time.time() - timer:.2f}s | batch#{i + 1} | {(i + 1) / len(dataloader) * 100:.2f}% completed"
                 )
-                print("------" * 10)
                 timer = time.time()
 
     return embeddings
