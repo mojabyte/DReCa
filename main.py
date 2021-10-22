@@ -178,7 +178,7 @@ def main():
         data = None
         header = ["premise", "hypothesis", "label"]
         for task in list_of_tasks:
-            path = get_loc("train", k, args.data_dir)[0]
+            path = get_loc("train", task, args.data_dir)[0]
             df = pd.read_csv(path, sep="\t", header=None, names=header)
             if data == None:
                 data = df
