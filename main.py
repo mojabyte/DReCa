@@ -37,7 +37,7 @@ parser.add_argument("--sc_labels", type=int, default=3, help="")
 parser.add_argument("--qa_labels", type=int, default=2, help="")
 
 parser.add_argument("--qa_batch_size", type=int, default=8, help="batch size")
-parser.add_argument("--sc_batch_size", type=int, default=32, help="batch size")
+parser.add_argument("--sc_batch_size", type=int, default=64, help="batch size")
 
 parser.add_argument("--seed", type=int, default=63, help="seed for numpy and pytorch")
 parser.add_argument("--data_dir", type=str, default="data/", help="directory of data")
@@ -92,6 +92,25 @@ if torch.cuda.is_available():
 DEVICE = torch.device("cuda" if args.cuda else "cpu")
 
 
+def get_dataloader(task):
+    if "qa" in task:
+        data = CorpusQA(
+            *get_loc("train", task, args.data_dir),
+            model_name=args.model_name,
+            local_files_only=args.local_model,
+        )
+        batch_size = args.qa_batch_size
+    elif "sc" in task:
+        data = CorpusSC(
+            *get_loc("train", task, args.data_dir),
+            model_name=args.model_name,
+            local_files_only=args.local_model,
+        )
+        batch_size = args.sc_batch_size
+
+    return DataLoader(data, shuffle=False, batch_size=batch_size)
+
+
 def main():
     global_time = time.time()
 
@@ -105,54 +124,38 @@ def main():
             print(f"load embeddings {args.load_embeddings}...")
             embeddings = torch.load(args.load_embeddings)
         elif args.embed:
-            # loader
-            data_list = []
-            dataloaders = []
-
-            for k in list_of_tasks:
-                data = None
-                batch_size = 32
-
-                if "qa" in k:
-                    data = CorpusQA(
-                        *get_loc("train", k, args.data_dir),
-                        model_name=args.model_name,
-                        local_files_only=args.local_model,
-                    )
-                    batch_size = args.qa_batch_size
-                elif "sc" in k:
-                    data = CorpusSC(
-                        *get_loc("train", k, args.data_dir),
-                        model_name=args.model_name,
-                        local_files_only=args.local_model,
-                    )
-                    batch_size = args.sc_batch_size
-                else:
-                    continue
-
-                data_list.append(data)
-                dataloader = DataLoader(data, shuffle=False, batch_size=batch_size)
-                dataloaders.append(dataloader)
-
             print(f"loading model {args.load}...")
             model = torch.load(args.load).to(DEVICE)
 
+            print("\n------------------ Generate Embeddings ------------------")
             global_time = time.time()
 
-            print("\n------------------ Generate Embeddings ------------------")
+            for task in list_of_tasks:
+                print(f"\n------------------ Loading {task} dataset ------------------")
 
-            for task, dataloader in zip(list_of_tasks, dataloaders):
-                print(f"\nEmbedding {task} dataset")
-                print("======" * 10)
-                embedding = embed(model, dataloader, task)
+                dataloader = get_dataloader(task)
+
+                print(f"{time.time() - global_time:.0f}s")
+                global_time = time.time()
+
+                print(f"\n----------------- Embedding {task} dataset -----------------")
+
+                embedding = embed(model, dataloader).cpu()
+
+                print(f"save {task} embeddings...")
+                torch.save(embedding, os.path.join(args.save, f"embeddings_{task}.pt"))
+
                 embeddings.append(embedding)
 
-            embeddings = torch.cat(embeddings, dim=0).cpu()
+                print(f"{time.time() - global_time:.0f}s")
+                global_time = time.time()
 
-            print("save embeddings...")
-            torch.save(embeddings, os.path.join(args.save, "embeddings.pt"))
+            print(f"save all embeddings...")
 
-        print(f"{time.time() - global_time:.0f}s")
+            embeddings = torch.cat(embeddings, dim=0)
+            torch.save(embedding, os.path.join(args.save, f"embeddings.pt"))
+
+            print(f"{time.time() - global_time:.0f}s")
 
         if args.pca:
             print("\n----------------------- Apply PCA -----------------------\n")
@@ -265,14 +268,23 @@ def main():
         print(f"{time.time() - global_time:.0f}s")
 
 
-def embed(model, dataloader, task):
+def embed(model, dataloader):
     model.eval()
     with torch.no_grad():
         embeddings = torch.tensor([]).to(DEVICE)
 
         timer = time.time()
         for i, batch in enumerate(dataloader):
-            outputs = model.forward(task, batch, output_hidden_states=True)
+            batch["input_ids"] = batch["input_ids"].to(DEVICE)
+            batch["attention_mask"] = batch["attention_mask"].to(DEVICE)
+            batch["token_type_ids"] = batch["token_type_ids"].to(DEVICE)
+
+            outputs = model.model(
+                batch["input_ids"],
+                attention_mask=batch["attention_mask"],
+                token_type_ids=batch["token_type_ids"],
+                output_hidden_states=True,
+            )
 
             last_hidden_state = outputs[2][-1]
 
@@ -280,9 +292,7 @@ def embed(model, dataloader, task):
             cls_embedding = last_hidden_state[:, 0, :]
 
             # mean pooled representation of premise & hypothesis
-            attention_mask = batch["attention_mask"]
-            token_type_ids = batch["token_type_ids"]
-            seg_ids = token_type_ids + attention_mask
+            seg_ids = batch["token_type_ids"] + batch["attention_mask"]
             seg_ids[:, 0] = 0
 
             premise_seg = (seg_ids == 1).unsqueeze(-1).float()
