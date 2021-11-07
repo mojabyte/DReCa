@@ -71,15 +71,10 @@ print(args)
 task_types = args.datasets.split(",")
 list_of_tasks = []
 
-for tt in loc["train"].keys():
-    if tt[:2] in task_types:
-        list_of_tasks.append(tt)
-
 for tt in task_types:
     if "_" in tt:
         list_of_tasks.append(tt)
 
-list_of_tasks = list(set(list_of_tasks))
 print(list_of_tasks)
 
 if torch.cuda.is_available():
