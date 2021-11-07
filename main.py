@@ -283,17 +283,17 @@ def embed(model, dataloader):
         timer = time.time()
         for i, batch in enumerate(dataloader):
             batch["input_ids"] = batch["input_ids"].to(DEVICE)
-            attention_mask = batch["attention_mask"].to(DEVICE)
-            token_type_ids = batch["token_type_ids"].to(DEVICE)
+            batch["attention_mask"] = batch["attention_mask"].to(DEVICE)
+            batch["token_type_ids"] = batch["token_type_ids"].to(DEVICE)
 
             outputs = model.model(
                 batch["input_ids"],
-                attention_mask=attention_mask,
-                token_type_ids=token_type_ids,
+                attention_mask=batch["attention_mask"],
+                token_type_ids=batch["token_type_ids"],
                 output_hidden_states=True,
             )
 
-            last_hidden_state = outputs[2][-1].detach().cpu()
+            last_hidden_state = outputs[2][-1]
 
             # embeddding at the [CLS] token:
             cls_embedding = last_hidden_state[:, 0, :]
@@ -324,7 +324,7 @@ def embed(model, dataloader):
                 )
                 timer = time.time()
 
-    embeddings = torch.cat(embeddings, dim=0)
+    embeddings = torch.cat(embeddings, dim=0).cpu()
 
     return embeddings
 
