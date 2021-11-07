@@ -8,6 +8,7 @@ from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 import torch
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 from data import CorpusQA, CorpusSC
 
@@ -280,8 +281,7 @@ def embed(model, dataloader):
 
     model.eval()
     with torch.no_grad():
-        timer = time.time()
-        for i, batch in enumerate(dataloader):
+        for batch in tqdm(dataloader):
             batch["input_ids"] = batch["input_ids"].to(DEVICE)
             batch["attention_mask"] = batch["attention_mask"].to(DEVICE)
             batch["token_type_ids"] = batch["token_type_ids"].to(DEVICE)
@@ -317,12 +317,6 @@ def embed(model, dataloader):
                 dim=1,
             )
             embeddings.append(embedding)
-
-            if (i + 1) % args.log_interval == 0 or (i + 1) == len(dataloader):
-                print(
-                    f"{time.time() - timer:.2f}s | batch#{i + 1} | {(i + 1) / len(dataloader) * 100:.2f}% completed"
-                )
-                timer = time.time()
 
     embeddings = torch.cat(embeddings, dim=0).cpu()
 
