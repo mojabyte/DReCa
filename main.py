@@ -121,8 +121,7 @@ def main():
         print(f"load pca {args.load_pca}...")
         principalComponents = torch.load(args.load_pca)
     else:
-        embeddings = []
-
+        # TODO: load multiple embeddings and concat them
         if args.load_embeddings != "":
             print(f"load embeddings {args.load_embeddings}...")
             embeddings = torch.load(args.load_embeddings)
@@ -143,29 +142,22 @@ def main():
 
                 print(f"\n----------------- Embedding {task} dataset -----------------")
 
-                embedding = embed(model, dataloader)
+                embeddings = embed(model, dataloader)
 
                 del dataloader
                 gc.collect()
 
                 print(f"save {task} embeddings...")
                 torch.save(
-                    embedding,
+                    embeddings,
                     os.path.join(args.save, f"embeddings_{task}.pt"),
                     pickle_protocol=4,
                 )
 
-                embeddings.append(embedding)
-
                 print(f"{time.time() - global_time:.0f}s")
                 global_time = time.time()
 
-            print(f"save all embeddings...")
-
-            embeddings = torch.cat(embeddings, dim=0)
-            torch.save(
-                embedding, os.path.join(args.save, f"embeddings.pt"), pickle_protocol=4
-            )
+            # TODO: load and concat all embeddings
 
             print(f"{time.time() - global_time:.0f}s")
 
@@ -174,7 +166,10 @@ def main():
 
             pca = PCA(n_components=0.99, svd_solver="full", copy=False)
             principalComponents = pca.fit_transform(embeddings)
+
             del embeddings
+            gc.collect()
+
             print(f"PCA output shape: {principalComponents.shape}")
             torch.save(
                 principalComponents,
@@ -298,7 +293,7 @@ def embed(model, dataloader):
                 output_hidden_states=True,
             )
 
-            last_hidden_state = outputs[2][-1]
+            last_hidden_state = outputs[2][-1].detach().cpu()
 
             # embeddding at the [CLS] token:
             cls_embedding = last_hidden_state[:, 0, :]
@@ -321,7 +316,7 @@ def embed(model, dataloader):
                 (cls_embedding, premise_representation, hypothesis_representation),
                 dim=1,
             )
-            embeddings.append(embedding.cpu())
+            embeddings.append(embedding)
 
             if (i + 1) % args.log_interval == 0 or (i + 1) == len(dataloader):
                 print(
