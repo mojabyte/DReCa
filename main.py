@@ -8,7 +8,6 @@ from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 import torch
 from torch.utils.data import DataLoader
-from tqdm import tqdm
 
 from data import CorpusQA, CorpusSC
 
@@ -49,7 +48,6 @@ parser.add_argument("--save", type=str, default="saved/", help="")
 parser.add_argument("--load", type=str, default="model.pt", help="")
 parser.add_argument("--load_embeddings", type=str, default="", help="")
 parser.add_argument("--load_pca", type=str, default="", help="")
-parser.add_argument("--log_interval", type=int, default=100, help="")
 parser.add_argument("--log_file", type=str, default="main_output.txt", help="")
 parser.add_argument("--grad_clip", type=float, default=5.0)
 parser.add_argument("--datasets", type=str, default="sc_en")
@@ -154,6 +152,9 @@ def main():
                     os.path.join(args.save, f"embeddings_{task}.pt"),
                     pickle_protocol=4,
                 )
+
+                del embeddings
+                gc.collect()
 
                 print(f"{time.time() - global_time:.0f}s")
                 global_time = time.time()
@@ -281,7 +282,7 @@ def embed(model, dataloader):
 
     model.eval()
     with torch.no_grad():
-        for batch in tqdm(dataloader):
+        for batch in dataloader:
             batch["input_ids"] = batch["input_ids"].to(DEVICE)
             batch["attention_mask"] = batch["attention_mask"].to(DEVICE)
             batch["token_type_ids"] = batch["token_type_ids"].to(DEVICE)
