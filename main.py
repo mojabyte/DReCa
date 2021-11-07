@@ -1,4 +1,4 @@
-import argparse, time, torch, os, logging, warnings, sys
+import argparse, gc, time, os, logging, warnings, sys
 
 import itertools
 import matplotlib.pyplot as plt
@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
+import torch
 from torch.utils.data import DataLoader
 
 from data import CorpusQA, CorpusSC
@@ -138,9 +139,14 @@ def main():
                 embedding = embed(model, dataloader).cpu()
 
                 del dataloader
+                gc.collect()
 
                 print(f"save {task} embeddings...")
-                torch.save(embedding, os.path.join(args.save, f"embeddings_{task}.pt"))
+                torch.save(
+                    embedding,
+                    os.path.join(args.save, f"embeddings_{task}.pt"),
+                    pickle_protocol=4,
+                )
 
                 embeddings.append(embedding)
 
@@ -150,7 +156,9 @@ def main():
             print(f"save all embeddings...")
 
             embeddings = torch.cat(embeddings, dim=0)
-            torch.save(embedding, os.path.join(args.save, f"embeddings.pt"))
+            torch.save(
+                embedding, os.path.join(args.save, f"embeddings.pt"), pickle_protocol=4
+            )
 
             print(f"{time.time() - global_time:.0f}s")
 

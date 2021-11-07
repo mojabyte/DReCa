@@ -1,8 +1,7 @@
 import torch
 from transformers import AutoTokenizer
 from transformers.data.processors.squad import *
-from tqdm import tqdm
-import json, os
+import os
 import pandas as pd
 
 import pickle5 as pickle
