@@ -319,7 +319,7 @@ def embed(model, dataloader):
             )
             embeddings.append(embedding)
 
-    embeddings = torch.cat(embeddings, dim=0).cpu()
+    embeddings = torch.cat(embeddings, dim=0)
 
     return embeddings
 
