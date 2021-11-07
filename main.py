@@ -52,6 +52,7 @@ parser.add_argument("--log_interval", type=int, default=100, help="")
 parser.add_argument("--log_file", type=str, default="main_output.txt", help="")
 parser.add_argument("--grad_clip", type=float, default=5.0)
 parser.add_argument("--datasets", type=str, default="sc_en")
+parser.add_argument("--pin_memory", action="store_true", help="")
 parser.add_argument("--num_workers", type=int, default=0, help="")
 
 parser.add_argument("--embed", action="store_true", help="Generate embeddings")
@@ -104,7 +105,13 @@ def get_dataloader(task):
         )
         batch_size = args.sc_batch_size
 
-    return DataLoader(data, shuffle=False, batch_size=batch_size)
+    return DataLoader(
+        data,
+        shuffle=False,
+        batch_size=batch_size,
+        pin_memory=args.pin_memory,
+        num_workers=args.num_workers,
+    )
 
 
 def main():
@@ -136,7 +143,7 @@ def main():
 
                 print(f"\n----------------- Embedding {task} dataset -----------------")
 
-                embedding = embed(model, dataloader).cpu()
+                embedding = embed(model, dataloader)
 
                 del dataloader
                 gc.collect()
@@ -274,10 +281,10 @@ def main():
 
 
 def embed(model, dataloader):
+    embeddings = []
+
     model.eval()
     with torch.no_grad():
-        embeddings = torch.tensor([]).to(DEVICE)
-
         timer = time.time()
         for i, batch in enumerate(dataloader):
             batch["input_ids"] = batch["input_ids"].to(DEVICE)
@@ -311,15 +318,18 @@ def embed(model, dataloader):
             ) / torch.sum(hypothesis_seg, dim=1)
 
             embedding = torch.cat(
-                (cls_embedding, premise_representation, hypothesis_representation), 1
+                (cls_embedding, premise_representation, hypothesis_representation),
+                dim=1,
             )
-            embeddings = torch.cat((embeddings, embedding), 0)
+            embeddings.append(embedding.cpu())
 
             if (i + 1) % args.log_interval == 0 or (i + 1) == len(dataloader):
                 print(
                     f"{time.time() - timer:.2f}s | batch#{i + 1} | {(i + 1) / len(dataloader) * 100:.2f}% completed"
                 )
                 timer = time.time()
+
+    embeddings = torch.cat(embeddings, dim=0)
 
     return embeddings
 
