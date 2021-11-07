@@ -120,7 +120,7 @@ def main():
             embeddings = torch.load(args.load_embeddings)
         elif args.embed:
             print(f"loading model {args.load}...")
-            model = torch.load(args.load).to(DEVICE)
+            model = torch.load(args.load)
 
             print("\n------------------ Generate Embeddings ------------------")
             global_time = time.time()
