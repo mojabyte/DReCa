@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader
 from data import CorpusQA, CorpusSC
 
 # from model import BertMetaLearning
-from datapath import loc, get_loc
+from datapath import get_loc
 from utils.logger import Logger
 
 logging.getLogger("transformers.tokenization_utils").setLevel(logging.ERROR)
@@ -136,6 +136,8 @@ def main():
                 print(f"\n----------------- Embedding {task} dataset -----------------")
 
                 embedding = embed(model, dataloader).cpu()
+
+                del dataloader
 
                 print(f"save {task} embeddings...")
                 torch.save(embedding, os.path.join(args.save, f"embeddings_{task}.pt"))
