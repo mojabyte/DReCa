@@ -88,29 +88,29 @@ if torch.cuda.is_available():
 DEVICE = torch.device("cuda" if args.cuda else "cpu")
 
 
-# def get_dataloader(task):
-#     if "qa" in task:
-#         data = CorpusQA(
-#             *get_loc("train", task, args.data_dir),
-#             model_name=args.model_name,
-#             local_files_only=args.local_model,
-#         )
-#         batch_size = args.qa_batch_size
-#     elif "sc" in task:
-#         data = CorpusSC(
-#             *get_loc("train", task, args.data_dir),
-#             model_name=args.model_name,
-#             local_files_only=args.local_model,
-#         )
-#         batch_size = args.sc_batch_size
+def get_dataloader(task):
+    if "qa" in task:
+        data = CorpusQA(
+            *get_loc("train", task, args.data_dir),
+            model_name=args.model_name,
+            local_files_only=args.local_model,
+        )
+        batch_size = args.qa_batch_size
+    elif "sc" in task:
+        data = CorpusSC(
+            *get_loc("train", task, args.data_dir),
+            model_name=args.model_name,
+            local_files_only=args.local_model,
+        )
+        batch_size = args.sc_batch_size
 
-#     return DataLoader(
-#         data,
-#         shuffle=False,
-#         batch_size=batch_size,
-#         pin_memory=args.pin_memory,
-#         num_workers=args.num_workers,
-#     )
+    return DataLoader(
+        data,
+        shuffle=False,
+        batch_size=batch_size,
+        pin_memory=args.pin_memory,
+        num_workers=args.num_workers,
+    )
 
 
 def main():
@@ -134,20 +134,7 @@ def main():
             for task in list_of_tasks:
                 print(f"\n------------------ Loading {task} dataset ------------------")
 
-                data = CorpusSC(
-                    *get_loc("train", task, args.data_dir),
-                    model_name=args.model_name,
-                    local_files_only=args.local_model,
-                )
-                batch_size = args.sc_batch_size
-
-                dataloader = DataLoader(
-                    data,
-                    shuffle=False,
-                    batch_size=batch_size,
-                    pin_memory=args.pin_memory,
-                    num_workers=args.num_workers,
-                )
+                dataloader = get_dataloader(task)
 
                 print(f"{time.time() - global_time:.0f}s")
                 global_time = time.time()
