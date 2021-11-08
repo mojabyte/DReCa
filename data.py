@@ -115,6 +115,8 @@ class CorpusSC(Dataset):
             self.data = self.preprocess(path, file)
             with open(cached_data_file, "wb") as f:
                 pickle.dump(self.data, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+            del self.tokenizer
             gc.collect()
 
     def preprocess(self, path, file):
