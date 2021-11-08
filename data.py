@@ -3,8 +3,7 @@ from transformers import AutoTokenizer
 from transformers.data.processors.squad import *
 import os
 import pandas as pd
-
-import pickle5 as pickle
+import pickle
 
 from torch.utils.data import Dataset
 
