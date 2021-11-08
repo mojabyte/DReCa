@@ -125,7 +125,7 @@ class CorpusSC(Dataset):
         label_list = df["label"].to_list()
 
         # Tokenize input pair sentences
-        ids = self.tokenizer(
+        dataset = self.tokenizer(
             premise_list,
             hypothesis_list,
             add_special_tokens=True,
@@ -136,22 +136,8 @@ class CorpusSC(Dataset):
             return_token_type_ids=True,
             return_tensors="pt",
         )
-        print(ids.keys())
-        input_ids = ids["input_ids"]
-        attention_mask = ids["attention_mask"]
-        token_type_ids = ids["token_type_ids"]
 
-        labels = torch.tensor([self.label_dict[label] for label in label_list])
-
-        del df
-        gc.collect()
-
-        dataset = {
-            "input_ids": input_ids,
-            "token_type_ids": token_type_ids,
-            "attention_mask": attention_mask,
-            "label": labels,
-        }
+        dataset["label"] = torch.tensor([self.label_dict[label] for label in label_list])
 
         return dataset
 
