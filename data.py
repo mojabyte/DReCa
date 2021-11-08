@@ -109,12 +109,12 @@ class CorpusSC(Dataset):
 
         cached_data_file = path + f"_{type(self.tokenizer).__name__}.pickle"
 
-        if not os.path.exists(cached_data_file):
-            data = self.preprocess(path, file)
+        if os.path.exists(cached_data_file):
+            self.data = pickle.load(open(cached_data_file, "rb"))
+        else:
+            self.data = self.preprocess(path, file)
             with open(cached_data_file, "wb") as f:
-                pickle.dump(data, f, protocol=pickle.HIGHEST_PROTOCOL)
-
-        self.data = pickle.load(open(cached_data_file, "rb"))
+                pickle.dump(self.data, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     def preprocess(self, path, file):
         header = ["premise", "hypothesis", "label"]
@@ -125,7 +125,7 @@ class CorpusSC(Dataset):
         label_list = df["label"].to_list()
 
         # Tokenize input pair sentences
-        dataset = self.tokenizer(
+        ids = self.tokenizer(
             premise_list,
             hypothesis_list,
             add_special_tokens=True,
@@ -137,9 +137,14 @@ class CorpusSC(Dataset):
             return_tensors="pt",
         )
 
-        dataset["label"] = torch.tensor(
-            [self.label_dict[label] for label in label_list]
-        )
+        labels = torch.tensor([self.label_dict[label] for label in label_list])
+
+        dataset = {
+            "input_ids": ids["input_ids"],
+            "token_type_ids": ids["attention_mask"],
+            "attention_mask": ids["token_type_ids"],
+            "label": labels,
+        }
 
         return dataset
 
