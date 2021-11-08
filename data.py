@@ -113,6 +113,7 @@ class CorpusSC(Dataset):
             self.data = pickle.load(open(cached_data_file, "rb"))
         else:
             self.data = self.preprocess(path, file)
+            self.tokenizer = None
             pickle.dump(
                 self.data,
                 open(cached_data_file, "wb"),
