@@ -136,6 +136,7 @@ class CorpusSC(Dataset):
             return_token_type_ids=True,
             return_tensors="pt",
         )
+        print(ids.keys())
         input_ids = ids["input_ids"]
         attention_mask = ids["attention_mask"]
         token_type_ids = ids["token_type_ids"]
