@@ -109,12 +109,12 @@ class CorpusSC(Dataset):
 
         cached_data_file = path + f"_{type(self.tokenizer).__name__}.pickle"
 
-        if os.path.exists(cached_data_file):
-            self.data = pickle.load(open(cached_data_file, "rb"))
-        else:
-            self.data = self.preprocess(path, file)
+        if not os.path.exists(cached_data_file):
+            data = self.preprocess(path, file)
             with open(cached_data_file, "wb") as f:
-                pickle.dump(self.data, f, protocol=pickle.HIGHEST_PROTOCOL)
+                pickle.dump(data, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+        self.data = pickle.load(open(cached_data_file, "rb"))
 
     def preprocess(self, path, file):
         header = ["premise", "hypothesis", "label"]
@@ -137,7 +137,9 @@ class CorpusSC(Dataset):
             return_tensors="pt",
         )
 
-        dataset["label"] = torch.tensor([self.label_dict[label] for label in label_list])
+        dataset["label"] = torch.tensor(
+            [self.label_dict[label] for label in label_list]
+        )
 
         return dataset
 
