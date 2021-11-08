@@ -113,8 +113,11 @@ class CorpusSC(Dataset):
             self.data = pickle.load(open(cached_data_file, "rb"))
         else:
             self.data = self.preprocess(path, file)
-            with open(cached_data_file, "wb") as f:
-                pickle.dump(self.data, f, protocol=pickle.HIGHEST_PROTOCOL)
+            pickle.dump(
+                self.data,
+                open(cached_data_file, "wb"),
+                protocol=pickle.HIGHEST_PROTOCOL,
+            )
 
     def preprocess(self, path, file):
         header = ["premise", "hypothesis", "label"]
