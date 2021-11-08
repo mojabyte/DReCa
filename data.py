@@ -1,9 +1,9 @@
+import gc, os, pickle
+
 import torch
 from transformers import AutoTokenizer
 from transformers.data.processors.squad import *
-import os
 import pandas as pd
-import pickle
 
 from torch.utils.data import Dataset
 
@@ -113,8 +113,9 @@ class CorpusSC(Dataset):
             self.data = pickle.load(open(cached_data_file, "rb"))
         else:
             self.data = self.preprocess(path, file)
-            # with open(cached_data_file, "wb") as f:
-            #     pickle.dump(self.data, f, protocol=pickle.HIGHEST_PROTOCOL)
+            with open(cached_data_file, "wb") as f:
+                pickle.dump(self.data, f, protocol=pickle.HIGHEST_PROTOCOL)
+            gc.collect()
 
     def preprocess(self, path, file):
         header = ["premise", "hypothesis", "label"]
