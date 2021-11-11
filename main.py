@@ -53,6 +53,7 @@ parser.add_argument("--grad_clip", type=float, default=5.0)
 parser.add_argument("--datasets", type=str, default="sc_en")
 parser.add_argument("--pin_memory", action="store_true", help="")
 parser.add_argument("--num_workers", type=int, default=0, help="")
+parser.add_argument("--log_interval", type=int, default=200, help="")
 
 parser.add_argument("--embed", action="store_true", help="Generate embeddings")
 parser.add_argument("--pca", action="store_true", help="Calculate PCA")
@@ -282,7 +283,8 @@ def embed(model, dataloader):
 
     model.eval()
     with torch.no_grad():
-        for batch in dataloader:
+        timer = time.time()
+        for i, batch in enumerate(dataloader):
             batch["input_ids"] = batch["input_ids"].to(DEVICE)
             batch["attention_mask"] = batch["attention_mask"].to(DEVICE)
             batch["token_type_ids"] = batch["token_type_ids"].to(DEVICE)
@@ -317,7 +319,14 @@ def embed(model, dataloader):
                 (cls_embedding, premise_representation, hypothesis_representation),
                 dim=1,
             )
-            embeddings.append(embedding)
+
+            embeddings.append(embedding.cpu())
+
+            if (i + 1) % args.log_interval == 0 or (i + 1) == len(dataloader):
+                print(
+                    f"{time.time() - timer:.2f}s | batch#{i + 1} | {(i + 1) / len(dataloader) * 100:.2f}% completed"
+                )
+                timer = time.time()
 
     embeddings = torch.cat(embeddings, dim=0)
 
