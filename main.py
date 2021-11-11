@@ -233,6 +233,9 @@ def main():
         plt.rcParams["figure.figsize"] = 15, 10
 
         def plot_clusters(embeddings, kmeans, marker="o", label=""):
+            embeddings = embeddings[
+                np.random.choice(embeddings.shape[0], 10000, replace=False)
+            ]
             cluster_1 = embeddings[kmeans.labels_ == 0]
             cluster_2 = embeddings[kmeans.labels_ == 1]
 
