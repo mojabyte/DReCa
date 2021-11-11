@@ -121,6 +121,7 @@ def main():
     if args.load_pca != "":
         print(f"load pca {args.load_pca}...")
         principalComponents = torch.load(args.load_pca)
+        print(f"{time.time() - global_time:.0f}s")
     else:
         if args.load_embeddings != "":
             print(f"load embeddings {args.load_embeddings}...")
@@ -202,10 +203,13 @@ def main():
             path = get_loc("train", task, args.data_dir)[0]
             df = pd.read_csv(path, sep="\t", header=None, names=header)
             data = data.append(df)
+        data = data.reset_index(drop=True)
 
         print(f"{time.time() - global_time:.0f}s")
 
         print("\n---------------------- Clustering -----------------------\n")
+
+        global_time = time.time()
 
         # TODO: loop over all task_list labels
         label_dict = {"contradiction": 0, "entailment": 1, "neutral": 2}
@@ -227,14 +231,20 @@ def main():
 
         print("\n-------------------- Plot Clusters ----------------------\n")
 
+        global_time = time.time()
+
         plt.rcParams["figure.figsize"] = 15, 10
 
         def plot_clusters(embeddings, kmeans, marker="o", label=""):
             cluster_1 = embeddings[kmeans.labels_ == 0]
             cluster_2 = embeddings[kmeans.labels_ == 1]
 
-            cluster_1 = cluster_1[np.random.choice(cluster_1.shape[0], 10000, replace=False)]
-            cluster_2 = cluster_2[np.random.choice(cluster_2.shape[0], 10000, replace=False)]
+            cluster_1 = cluster_1[
+                np.random.choice(cluster_1.shape[0], 10000, replace=False)
+            ]
+            cluster_2 = cluster_2[
+                np.random.choice(cluster_2.shape[0], 10000, replace=False)
+            ]
 
             plt.scatter(
                 cluster_1[:, 0],
@@ -260,7 +270,11 @@ def main():
 
         print("\n------ Save all label-cluster combinations subsets ------\n")
 
+        global_time = time.time()
+
         ids = data.index.to_numpy()
+
+        print(ids.shape)
 
         def get_cluster_idx(kmeans, ids):
             return ids[kmeans.labels_ == 0], ids[kmeans.labels_ == 1]
@@ -282,6 +296,7 @@ def main():
                 header=None,
                 index=None,
             )
+            print(f"task {i} length:", len(data_subset))
 
         print(f"{time.time() - global_time:.0f}s")
 
