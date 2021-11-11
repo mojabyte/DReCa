@@ -131,7 +131,7 @@ def main():
                 print(f"load embeddings of {task}...")
                 embeddings_list.append(
                     torch.load(
-                        os.path.join(args.load_embeddings, f"embeddings_{task}.pt")
+                        os.path.join(args.load_embeddings_dir, f"embeddings_{task}.pt")
                     )
                 )
             embeddings = torch.cat(embeddings_list)
@@ -169,8 +169,6 @@ def main():
 
                 print(f"{time.time() - global_time:.0f}s")
                 global_time = time.time()
-
-            # TODO: load and concat all embeddings
 
             print(f"{time.time() - global_time:.0f}s")
 
