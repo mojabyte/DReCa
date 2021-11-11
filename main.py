@@ -47,6 +47,7 @@ parser.add_argument("--tpu", action="store_true", help="use TPU")
 parser.add_argument("--save", type=str, default="saved/", help="")
 parser.add_argument("--load", type=str, default="model.pt", help="")
 parser.add_argument("--load_embeddings", type=str, default="", help="")
+parser.add_argument("--load_embeddings_dir", type=str, default="", help="")
 parser.add_argument("--load_pca", type=str, default="", help="")
 parser.add_argument("--log_file", type=str, default="main_output.txt", help="")
 parser.add_argument("--grad_clip", type=float, default=5.0)
@@ -121,10 +122,19 @@ def main():
         print(f"load pca {args.load_pca}...")
         principalComponents = torch.load(args.load_pca)
     else:
-        # TODO: load multiple embeddings and concat them
         if args.load_embeddings != "":
             print(f"load embeddings {args.load_embeddings}...")
             embeddings = torch.load(args.load_embeddings)
+        elif args.load_embeddings_dir != "":
+            embeddings_list = []
+            for task in list_of_tasks:
+                print(f"load embeddings of {task}...")
+                embeddings_list.append(
+                    torch.load(
+                        os.path.join(args.load_embeddings, f"embeddings_{task}.pt")
+                    )
+                )
+            embeddings = torch.cat(embeddings_list)
         elif args.embed:
             print(f"loading model {args.load}...")
             model = torch.load(args.load)
