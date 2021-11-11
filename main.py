@@ -196,15 +196,12 @@ def main():
 
         print("\n------------------ Load Datasets ------------------\n")
 
-        data = None
+        data = pd.DataFrame()
         header = ["premise", "hypothesis", "label"]
         for task in list_of_tasks:
             path = get_loc("train", task, args.data_dir)[0]
             df = pd.read_csv(path, sep="\t", header=None, names=header)
-            if data == None:
-                data = df
-            else:
-                data.append(df)
+            data = data.append(df)
 
         print(f"{time.time() - global_time:.0f}s")
 
